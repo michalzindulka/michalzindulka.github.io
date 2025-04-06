@@ -1,0 +1,57 @@
+
+title: Omezení přiřazení rolí v GCP
+date: '2023-06-04'
+excerpt: Potřebujete omezit role, které mohou uživatelé přiřazovat? Jste na správném místě!
+content: |
+  # Omezení přiřazování rolí v GCP
+  Správa IAM rolí v GCP může být složitá. Chcete, aby váš tým měl flexibilitu při přiřazování rolí, ale zároveň nechcete, aby někdo omylem udělil příliš široký nebo nerelevantní přístup. Naštěstí vám podmínky IAM v GCP umožňují **omezit, které role lze přiřadit** - ideální pro udržení bezpečnosti a zároveň posílení pravomocí vašeho týmu.
+
+  ## 💡 Případ použití: Kontrola přiřazování rolí
+  Představte si, že spravujete projekt GCP, kde vývojáři často potřebují přiřazovat role jako App Engine Admin nebo App Engine Viewer. Můžete omezit uživatele tak, aby mohli udělovat pouze tyto konkrétní role, a tím zabránit neoprávněným přiřazením. To zajišťuje soulad a zabraňuje neúmyslnému zvýšení oprávnění.
+
+  ## ⚙️ Jak na to: Omezení přiřazování rolí pomocí IAM podmínek
+  Pomocí role **roles/resourcemanager.projectIamAdmin** s vlastní podmínkou můžete přesně definovat, které role lze přiřadit. Zde je postup:
+
+  ### 1. Nastavení podmínky
+  Definujte IAM podmínku pomocí následující logiky:
+  ```
+  api.getAttribute("iam.googleapis.com/modifiedGrantsByRole", []).hasOnly([
+    "roles/appengine.appAdmin",
+    "roles/appengine.appViewer"
+  ])
+  ```
+  Tím zajistíte, že uživatel může přiřazovat pouze role **App Engine Admin** a **App Engine Viewer**.
+
+  ### 2. Použití role s podmínkou
+  Přiřaďte roli **Project IAM Admin** s podmínkou pomocí Google Cloud CLI:
+
+  ```
+  gcloud projects add-iam-policy-binding [PROJECT_ID] \
+    --member="user:[USER_EMAIL]" \
+    --role="roles/resourcemanager.projectIamAdmin" \
+    --condition=^:^'expression=api.getAttribute("iam.googleapis.com/modifiedGrantsByRole", []).hasOnly(["roles/appengine.appAdmin","roles/appengine.appViewer"]):title=app_roles_only:description=Omezení přiřazování rolí pouze na specifické role App Engine'
+  ```
+
+  *Samozřejmě můžete dosáhnout stejného výsledku pomocí webového portálu nebo IaC.*
+
+  Jelikož výraz obsahuje čárky, je nutné použít alternativní oddělovač pro oddělení podmínek. Toho je dosaženo použitím ^:^ jako určeného oddělovače.
+
+  ### 3. Testování podmínky
+  Pro ověření se pokuste přiřadit omezenou roli pomocí uživatele, kterému byla přiřazena podmíněná role:
+
+  **Úspěch**: Přiřazení roles/appengine.appAdmin funguje.
+  **Selhání**: Přiřazení roles/storage.admin je zamítnuto.
+
+  ## 🌍 Příklad z reálného světa
+
+  ### Omezení automatizačního účtu podle PoLP
+  V jednom projektu jsme měli automatizační skript, který přiřazoval role uživatelům při vytváření nových projektů GCP. Abychom dodrželi princip nejmenších oprávnění (PoLP), omezili jsme automatizační účet tak, aby mohl přiřazovat pouze nezbytná oprávnění, která jsme potřebovali.
+  Tím jsme zajistili, že automatizace nemohla přiřazovat nechtěné role, minimalizovali jsme rizika a zároveň udrželi proces efektivní.
+
+  ## 📝 Závěrečné myšlenky
+  Kombinací podmínek s IAM rolemi můžete:
+  - Zajistit, že budou udělovány pouze autorizované role.
+  - Chránit své zdroje před neúmyslným zvýšením oprávnění.
+  - Umožnit bezpečné automatizační procesy bez kompromisů v oblasti bezpečnosti.
+
+  Podmínky můžete také použít k omezení přístupu ke zdrojům s konkrétním názvem nebo atributem. Toto téma však může být pokryto v budoucím článku.

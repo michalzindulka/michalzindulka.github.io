@@ -1,0 +1,57 @@
+
+title: Limit Role Assignments in GCP
+date: '2023-06-04'
+excerpt: Do you need to restrict roles, which users can assing? You are in the right place!
+content: |
+  # Limit Role Assignments in GCP
+  Managing IAM roles in GCP can be tricky. You want flexibility for your team to assign roles but don't want anyone accidentally granting overly permissive or irrelevant access. Luckily, GCP IAM conditions allow you to **restrict which roles can be assigned** - perfect for maintaining security while empowering your team.
+
+  ## 💡 Use Case: Control Role Assignments
+  Imagine you manage a GCP project where developers frequently need to assign roles like App Engine Admin or App Engine Viewer. You can limit users to grant only these specific roles to prevent unauthorized assignments. This ensures compliance and avoids accidental escalation of privileges.
+
+  ## ⚙️ How-To: Restrict Role Assignments with IAM Conditions
+  Using the **roles/resourcemanager.projectIamAdmin** role with a custom condition, you can define precisely which roles can be assigned. Here's how:
+
+  ### 1. Set Up the Condition
+  Define an IAM condition using the following logic:
+  ```
+  api.getAttribute("iam.googleapis.com/modifiedGrantsByRole", []).hasOnly([
+    "roles/appengine.appAdmin",
+    "roles/appengine.appViewer"
+  ])
+  ```
+  This ensures the user can only assign **App Engine Admin** and **App Engine Viewer** roles.
+
+  ### 2. Apply the Role with Condition
+  Assign the **Project IAM Admin** role with the condition using the Google Cloud CLI:
+
+  ```
+  gcloud projects add-iam-policy-binding [PROJECT_ID] \
+    --member="user:[USER_EMAIL]" \
+    --role="roles/resourcemanager.projectIamAdmin" \
+    --condition=^:^'expression=api.getAttribute("iam.googleapis.com/modifiedGrantsByRole", []).hasOnly(["roles/appengine.appAdmin","roles/appengine.appViewer"]):title=app_roles_only:description=Restrict role grant to specific App Engine roles only'
+  ```
+
+  *Of course, you can achieve the same by using a web portal or IaC.*
+
+  Since the expression contains commas, an alternative delimiter is required to separate conditions. This is achieved using ^:^ as the designated delimiter.
+
+  ### 3. Test the Condition
+  To verify, attempt to assign a restricted role using a user who has been assigned the conditional role:
+
+  **Success**: Assigning roles/appengine.appAdmin works.
+  **Failure**: Assigning roles/storage.admin is denied.
+
+  ## 🌍 Real-World Example
+
+  ### Restrict Automation Account to Follow PoLP
+  In one project, we had an automation script that assigned roles to users while provisioning new GCP projects. To comply with the principle of least privilege (PoLP), we restricted the automation account to assign only the necessary permissions we needed.
+  This ensured the automation couldn't assign unintended roles, minimizing risks while keeping the process efficient.
+
+  ## 📝 Final Thoughts
+  By combining conditions with IAM roles, you can:
+  - Ensure only authorized roles are granted.
+  - Protect your resources from accidental privilege escalation.
+  - Enable secure automation processes without compromising security.
+
+  You can also use conditions to restrict access to resources with a specific name or attribute. However, this topic may be covered in a future article.
