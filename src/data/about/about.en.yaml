@@ -1,23 +1,38 @@
 
 title: About
 content: |
-  Welcome to my site, where I share thoughts and ideas about the technologies I use and enjoy.
+  ## Welcome to My Corner of the Internet! 🌐 
 
-  My name is Michal Zindulka, and I consider myself a Systems Engineer with over 10 years of experience in IT.
+  Hi there! My name is Michal Zindulka, and I'm thrilled to have you here. 👋
 
-  My journey began right after high school when I joined the IBM Delivery Center in Brno, Czech Republic, as a 1st-level support technician. Since then, I've steadily grown my career, moving into 2nd-level support and eventually transitioning into a Systems Engineer role — a position I genuinely enjoy.
+  I'm a Systems Engineer with over a decade of experience in IT, passionate about exploring the technologies I use and enjoy. Here, I share my thoughts, ideas, and insights about Cloud, DevOps and everything in between.
 
-  After IBM, I joined Oriflame Software, where my journey with Cloud technologies began. After that, I've worked on various part-time projects and currently hold the position of DevOps Engineer at [Vortex](https://vortexcloud.io).
+  ## 🛠 My Journey
 
-  I'm passionate about Cloud, DevOps, and automation. My experience spans all three major cloud providers (Azure, AWS, and GCP), as well as on-premise environments.
-  Whether it's a managed Kubernetes service or deploying a cluster on bare metal, I'm comfortable in both worlds.
+  It all started right after high school when I joined the IBM Delivery Center in Brno, Czech Republic, as a 1st-level support technician. Over the years, I climbed the ladder into 2nd-level support and eventually found my passion as a Systems Engineer — a role I truly love.
 
-  Automation is a core part of my workflow — from simple scripting to building complex CI/CD pipelines. I'm a strong advocate for Infrastructure as Code (IaC) and leverage it across all my projects.
+  My career milestones include:
+  - **IBM**: Foundation of my technical journey.
+  - **Oriflame Software**: Where my love for Cloud technologies began.
+  - **Freelance Projects**: Diverse challenges that kept me sharp and versatile.
+  - **Vortex**: Currently serving as a DevOps Engineer at [Vortex](https://vortexcloud.io), embracing innovation every day.
 
-  I'm also a big supporter of GitOps principles, and tools like ArgoCD, Terraform, and Ansible are an essential part of my toolkit.
+  ## 🔍 What I Do
 
-  Feel free to explore my posts, leave a comment, or reach out if you have any questions or are interested in working together.
+  I thrive at the intersection of Cloud, DevOps, and automation. My expertise spans across the Big Three cloud providers:
+  Azure, AWS, and GCP — and I'm equally with on-premise environments.
 
-  **You can find me on following platforms:**
+  Whether it's managing a Kubernetes cluster on bare metal or leveraging a managed service, I've got it covered.
+
+  ## 🔧 Tools & Practices I Love
+  - **Infrastructure as Code (IaC)**: A cornerstone of my workflow, using tools like Terraform and Ansible.
+  - **GitOps Principles**: Enabling seamless, reliable deployments with tools like ArgoCD.
+  - **Automation**: From crafting simple scripts to architecting complex CI/CD pipelines — it's what makes my heart race.
+
+  ## 🌟 Let's Connect!
+
+  If you enjoy what you see here, feel free to explore my posts, or reach out if you'd like to collaborate or have any question.
+
+  Connect with Me on These Platforms:
   - [LinkedIn](https://www.linkedin.com/in/michalzindulka/)
   - [Medium](https://medium.com/@michal.zindulka)

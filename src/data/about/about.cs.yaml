@@ -1,22 +1,38 @@
 
 title: O mně
 content: |
-  Vítejte na mých stránkách, kde sdílím myšlenky a nápady týkající se technologií, které používám a které mě baví.
-  Jmenuji se Michal Zindulka a považuji se za Systémového Inženýra s více než desetiletou praxí v IT.
+  ## Vítejte na mém místě na internetu! 🌐
 
-  Moje cesta začala hned po střední škole, kdy jsem nastoupil do IBM Delivery Center v Brně jako technik podpory 1. úrovně. Od té doby jsem se postupně profesně rozvíjel, přešel na podporu 2. úrovně a nakonec přešel na pozici systémového inženýra - pozici, která mě opravdu baví.
+  Ahoj! Jmenuji se Michal Zindulka a jsem rád, že jste tady. 👋
 
-  Po IBM jsem nastoupil do společnosti Oriflame Software, kde začala moje cesta s cloudovými technologiemi. Poté jsem pracoval na různých projektech na částečný úvazek a v současné době zastávám pozici DevOps Engineer ve společnosti [Vortex](https://vortexcloud.io).
+  Jsem systémový inženýr s více než desetiletou praxí v IT, vášnivě objevující technologie, které používám a mám rád. Tady sdílím své myšlenky, nápady a postřehy o cloudu, DevOps a všem mezi tím.
 
-  Jsem nadšenec do cloudu, DevOps a automatizace. Mé zkušenosti zahrnují všechny tři hlavní poskytovatele cloudu (Azure, AWS a GCP) i lokální prostředí.
-  Ať už se jedná o spravovanou službu Kubernetes nebo nasazení clusteru na holém železe, cítím se dobře v obou světech.
+  ## 🛠 Moje cesta
 
-  Automatizace je klíčovou součástí mých pracovních postupů - od jednoduchého skriptování až po vytváření komplexních CI/CD pipelines. Jsem silným zastáncem infrastruktury jako kódu (IaC) a využívám ji ve všech svých projektech.
+  Všechno to začalo hned po střední škole, kdy jsem nastoupil do IBM Delivery Center v Brně jako technik 1. úrovně podpory. Během let jsem se posunul na 2. úroveň podpory a nakonec našel svou vášeň jako systémový inženýr — roli, kterou opravdu miluji.
 
-  Jsem také velkým zastáncem principů GitOps a nástroje jako ArgoCD, Terraform a Ansible jsou nezbytnou součástí mé sady nástrojů.
+  Milníky mé kariéry zahrnují:
+  - **IBM**: Základ mé technické cesty.
+  - **Oriflame Software**: Kde začala má láska ke cloudovým technologiím.
+  - **Freelance projekty**: Různorodé výzvy, které mě udržovaly flexibilním a připraveným na cokoliv.
+  - **Vortex**: Aktuálně působím jako DevOps inženýr ve společnosti [Vortex](https://vortexcloud.io), kde každý den přijímám nové inovace.
 
-  Neváhejte prozkoumat mé příspěvky, zanechat komentář nebo se ozvat, pokud máte nějaké dotazy nebo zájem o spolupráci.
+  ## 🔍 Co dělám
 
-  **Najdete mě na následujících platformách:**
+  Pohybuji se na křižovatce Cloudu, DevOps a automatizace. Mám zkušenosti se všemi třemi hlavními poskytovateli cloudu:
+  Azure, AWS a GCP — a stejně dobře zvládám i on-premise prostředí.
+
+  Ať už jde o správu Kubernetes clusteru na bare metal nebo využívání spravovaných služeb, mám to pod kontrolou.
+
+  ## 🔧 Nástroje a přístupy, které miluji:
+  - **Infrastructure as Code (IaC)**: Základ mého pracovního postupu, používám nástroje jako Terraform a Ansible.
+  - **GitOps principy**: Umožňují hladké a spolehlivé nasazování s pomocí nástrojů jako ArgoCD.
+  - **Automatizace**: Od tvorby jednoduchých skriptů po návrh komplexních CI/CD pipeline — to je to, co mě baví.
+
+  ## 🌟 Spojme se!
+
+  Pokud vás obsah zde zaujal, prozkoumejte mé příspěvky, nebo mě neváhejte kontaktovat, pokud byste chtěli spolupracovat nebo máte jakoukoliv otázku.
+
+  Najdete mě na těchto platformách:
   - [LinkedIn](https://www.linkedin.com/in/michalzindulka/)
   - [Medium](https://medium.com/@michal.zindulka)
