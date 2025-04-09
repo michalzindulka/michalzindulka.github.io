@@ -1,0 +1,213 @@
+
+title: GKE GitOps bootstrap
+date: '2023-09-04'
+excerpt: How to Bootstrap GKE Clusters with GitOps and Terraform in Minutes
+content: |
+  # How to Bootstrap GKE Clusters with GitOps and Terraform in Minutes 🚀
+
+  Did you ever need to spin up a GKE cluster with tools like **ingress-nginx, cert-manager, reloader…** plus your applications — and then delete it after your POC was done? Or maybe you needed an identical clone of your DEV GKE because a client requested a new environment, like DEV-2?
+  
+  This should be easy to handle if you're following **GitOps** and **IaC** principles for Kubernetes. Are you curious how I do it? Keep reading!
+
+  **BTW**: I'm not going to explain what GitOps or IaC is — Google it if you're not familiar.
+  
+  In my case, I frequently need to:
+  - Spin up GKE clusters.
+  - Install tools like ingress-nginx and configure cert-manager.
+  - Deploy some applications.
+  - Present the POC and either delete the cluster or hand it to the client.
+
+  To be as efficient as possible, everything I do is **by code** — using **IaC** and **GitOps**.
+
+  Here's my approach:
+  1. I spin up GKE using **Terraform** and deploy ArgoCD.
+  2. I install all the tools in Kubernetes using **ArgoCD**.
+
+  So, enough talking — let's see some code! 💻
+
+  ---
+
+  All the code I'll refer to is stored in [this Git repository](https://github.com/michalzindulka/k8s-gitops-bootstrap). 🛠️
+  
+  In the repository, all the **IaC code** is located in the terraform/main.tf file. Let me quickly explain what it does:
+  1. First, it spins up a simple **GKE Autopilot** cluster.
+  2. Then, it configures the **providers** to enable communication with GKE.
+
+  ```
+  # Simple GKE autopilot cluster:
+  resource "google_container_cluster" "demo" {
+    name     = "gke-demo-${var.resource_suffix}"
+    location = var.location
+
+    enable_autopilot    = true
+    project             = var.project_id
+    deletion_protection = false
+  }
+
+  # Retrieve an access token as the Terraform runner and setup providers
+  data "google_client_config" "provider" {}
+
+  provider "kubectl" {
+    host = "https://${google_container_cluster.demo.endpoint}"
+    cluster_ca_certificate = base64decode(
+      google_container_cluster.demo.master_auth[0].cluster_ca_certificate,
+    )
+    token            = data.google_client_config.provider.access_token
+    load_config_file = false
+  }
+
+  provider "kubernetes" {
+    host  = "https://${google_container_cluster.demo.endpoint}"
+    token = data.google_client_config.provider.access_token
+    cluster_ca_certificate = base64decode(
+      google_container_cluster.demo.master_auth[0].cluster_ca_certificate,
+    )
+  }
+
+  provider "helm" {
+    kubernetes {
+      host  = "https://${google_container_cluster.demo.endpoint}"
+      token = data.google_client_config.provider.access_token
+      cluster_ca_certificate = base64decode(
+        google_container_cluster.demo.master_auth[0].cluster_ca_certificate,
+      )
+    }
+  }
+  ```
+
+  The next part is to deploy ArgoCD using Helm.
+
+  ```
+  # Deploy ArgoCD with Helm and ignore it for future changes
+  resource "helm_release" "argocd" {
+    repository       = "https://argoproj.github.io/argo-helm"
+    chart            = "argo-cd"
+    name             = "argocd"
+    namespace        = "argocd"
+    create_namespace = true
+    verify           = false
+    version          = var.argocd_version
+    wait             = false
+
+    depends_on = [
+      google_container_cluster.demo
+    ]
+
+    lifecycle {
+      ignore_changes = all # Just bootstrap & forget and let ArgoCD do it's job.
+    }
+  }
+  ```
+
+  When deploying **ArgoCD** using Helm, I intentionally set the lifecycle on the helm_release resource to **ignore all changes**. This is because all future updates to ArgoCD are managed using ArgoCD itself — keeping the process consistent with the GitOps philosophy.
+
+  The next step is creating a **Kubernetes Secret**. This secret is essential for ArgoCD to access and authenticate with the Git repository where your configurations are stored.
+
+  ```
+  # Create a Kubernetes secret for ArgoCD repo credentials
+  resource "kubernetes_secret" "argocd_repo_creds" {
+    metadata {
+      name      = "git-creds"
+      namespace = "argocd"
+      labels = {
+        "argocd.argoproj.io/secret-type" = "repo-creds"
+      }
+    }
+
+    data = {
+      url      = var.git_url
+      username = "git"
+      password = var.git_pat
+    }
+
+    depends_on = [
+      helm_release.argocd
+    ]
+  }
+  ```
+
+  Finally, we create root **apps** and **projects**
+
+  ```
+  # Bootstrap ArgoCD apps and projects
+  resource "kubectl_manifest" "argocd_apps" {
+    yaml_body = templatefile("${path.module}/data/argocd-apps.yaml.tfpl", {
+      cluster_name       = google_container_cluster.demo.name
+      git_repository_url = var.git_url
+    })
+
+    depends_on = [
+      helm_release.argocd
+    ]
+  }
+
+  resource "kubectl_manifest" "argocd_projects" {
+    yaml_body = templatefile("${path.module}/data/argocd-projects.yaml.tfpl", {
+      cluster_name       = google_container_cluster.demo.name
+      git_repository_url = var.git_url
+    })
+
+    depends_on = [
+      helm_release.argocd
+    ]
+  }
+  ```
+
+  *Of course, I run this in one simple apply, not piece by piece.*
+
+  Using the code above, I now have a **GKE cluster** up and running with **ArgoCD** connected to my GitOps repository. 🎉
+
+  ---
+
+  ## 📂 GitOps Repository Structure
+
+  The next part is the GitOps repository structure. I follow the bellow structure
+
+  ```
+    .
+  └── clusters
+      └── gke-demo-k8sgibdm
+          ├── components
+          │   ├── apps
+          │   │   ├── argocd.yaml
+          │   │   └── hello-world.yaml
+          │   └── projects
+          │       ├── apps.yaml
+          │       └── infra.yaml
+          └── config
+              ├── argocd
+              │   └── values.yaml
+              └── hello-world
+                  └── deploy.yaml
+  ```
+
+  Next, let's look at the **GitOps repository structure** I follow:
+
+  - **Cluster folders**:
+    Each cluster has its folder containing everything specific to that cluster.
+  - **components/apps**:
+    This folder holds the **ArgoCD applications** I want to deploy.
+  - **components/projects**:
+    Here, I define ArgoCD projects.
+  - **config**:
+    This folder contains either:
+    - **HELM values files** for each app.
+    - Or **Kubernetes manifests**, if I'm not using HELM charts.
+
+  Any new project or app added to components subfolder is automatically detected and deployed by ArgoCD, thanks to the **root app/project** I set up using Terraform.
+
+  This structure ensures everything is modular, clean, and easily scalable.
+
+  ---
+
+  Using this approach, I can prepare a folder for each cluster I need and **bootstrap it effortlessly** using Terraform. 🚀
+
+  The best part? This approach isn't limited to GKE — you can use it for **AKS, EKS**, or even **on-premises Kubernetes**. For on-prem setups, replace Terraform with **Ansible** (which I use for my home lab).
+
+  ---
+
+  By combining **Terraform** for infrastructure provisioning and **ArgoCD** for GitOps, you can create a streamlined, repeatable process for managing Kubernetes clusters — whether for GKE, AKS, EKS, or even your on-prem lab.
+  
+  This approach ensures consistency, scalability, and efficiency, saving time and effort. Whether you're spinning up clusters for POCs or managing production environments, GitOps with ArgoCD makes the process seamless.
+
+  Ready to give it a try? 🚀

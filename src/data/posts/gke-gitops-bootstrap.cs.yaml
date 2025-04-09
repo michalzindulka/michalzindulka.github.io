@@ -1,0 +1,211 @@
+title: GKE GitOps bootstrap
+date: '2023-09-04'
+excerpt: Jak během pár minut bootstrapovat GKE clustery pomocí GitOps a Terraformu
+content: |
+  # Jak během pár minut bootstrapovat GKE clustery pomocí GitOps a Terraformu 🚀
+
+  Potřebovali jste někdy vytvořit GKE cluster s nástroji jako **ingress-nginx, cert-manager, reloader…** a vašimi aplikacemi — a poté ho po dokončení POC smazat? Nebo jste možná potřebovali identickou kopii vašeho DEV GKE, protože klient požadoval nové prostředí, například DEV-2?
+
+  Pokud dodržujete principy **GitOps** a **IaC** pro Kubernetes, mělo by být toto snadné. Zajímá vás, jak to dělám já? Čtěte dál!
+
+  **BTW**: Nebudu vysvětlovat, co je GitOps nebo IaC — pokud to neznáte, vyhledejte si to.
+
+  V mém případě často potřebuji:
+  - Vytvořit GKE clustery.
+  - Instalovat nástroje jako ingress-nginx a konfigurovat cert-manager.
+  - Nasadit aplikace.
+  - Prezentovat POC a buď cluster smazat, nebo ho předat klientovi.
+
+  Abych byl co nejefektivnější, vše dělám **kódem** — pomocí **IaC** a **GitOps**.
+
+  Můj přístup:
+  1. Vytvořím GKE pomocí **Terraformu** a nasadím ArgoCD.
+  2. Instalaci všech nástrojů v Kubernetes provádím pomocí **ArgoCD**.
+
+  Tak dost řečí — pojďme na kód! 💻
+
+  ---
+
+  Veškerý kód, na který budu odkazovat, je uložen v [tomto Git repozitáři](https://github.com/michalzindulka/k8s-gitops-bootstrap). 🛠️
+
+  V repozitáři je veškerý **IaC kód** umístěn v souboru terraform/main.tf. Rychle vysvětlím, co dělá:
+  1. Nejprve vytvoří jednoduchý **GKE Autopilot** cluster.
+  2. Poté nakonfiguruje **providery** pro komunikaci s GKE.
+
+  ```
+  # Jednoduchý GKE autopilot cluster:
+  resource "google_container_cluster" "demo" {
+    name     = "gke-demo-${var.resource_suffix}"
+    location = var.location
+
+    enable_autopilot    = true
+    project             = var.project_id
+    deletion_protection = false
+  }
+
+  # Získání přístupového tokenu a nastavení providerů
+  data "google_client_config" "provider" {}
+
+  provider "kubectl" {
+    host = "https://${google_container_cluster.demo.endpoint}"
+    cluster_ca_certificate = base64decode(
+      google_container_cluster.demo.master_auth[0].cluster_ca_certificate,
+    )
+    token            = data.google_client_config.provider.access_token
+    load_config_file = false
+  }
+
+  provider "kubernetes" {
+    host  = "https://${google_container_cluster.demo.endpoint}"
+    token = data.google_client_config.provider.access_token
+    cluster_ca_certificate = base64decode(
+      google_container_cluster.demo.master_auth[0].cluster_ca_certificate,
+    )
+  }
+
+  provider "helm" {
+    kubernetes {
+      host  = "https://${google_container_cluster.demo.endpoint}"
+      token = data.google_client_config.provider.access_token
+      cluster_ca_certificate = base64decode(
+        google_container_cluster.demo.master_auth[0].cluster_ca_certificate,
+      )
+    }
+  }
+  ```
+
+  Další částí je nasazení ArgoCD pomocí Helm.
+
+  ```
+  # Nasazení ArgoCD pomocí Helm a ignorování budoucích změn
+  resource "helm_release" "argocd" {
+    repository       = "https://argoproj.github.io/argo-helm"
+    chart            = "argo-cd"
+    name             = "argocd"
+    namespace        = "argocd"
+    create_namespace = true
+    verify           = false
+    version          = var.argocd_version
+    wait             = false
+
+    depends_on = [
+      google_container_cluster.demo
+    ]
+
+    lifecycle {
+      ignore_changes = all # Just bootstrap & forget and let ArgoCD do it's job.
+    }
+  }
+  ```
+
+  Při nasazování **ArgoCD** pomocí Helm záměrně nastavím lifecycle na **ignore all changes**. Důvodem je, že všechny budoucí aktualizace ArgoCD jsou spravovány samotným ArgoCD — což je v souladu s filozofií GitOps.
+
+  Dalším krokem je vytvoření **Kubernetes Secret**. Tento secret je nezbytný pro přístup ArgoCD k Git repozitáři, kde jsou uloženy vaše konfigurace.
+
+  ```
+  # Vytvoření Kubernetes secret pro přihlašovací údaje k repozitáři ArgoCD
+  resource "kubernetes_secret" "argocd_repo_creds" {
+    metadata {
+      name      = "git-creds"
+      namespace = "argocd"
+      labels = {
+        "argocd.argoproj.io/secret-type" = "repo-creds"
+      }
+    }
+
+    data = {
+      url      = var.git_url
+      username = "git"
+      password = var.git_pat
+    }
+
+    depends_on = [
+      helm_release.argocd
+    ]
+  }
+  ```
+
+  Nakonec vytvoříme root **apps** a **projects**.
+
+  ```
+  # Bootstrap ArgoCD aplikací a projektů
+  resource "kubectl_manifest" "argocd_apps" {
+    yaml_body = templatefile("${path.module}/data/argocd-apps.yaml.tfpl", {
+      cluster_name       = google_container_cluster.demo.name
+      git_repository_url = var.git_url
+    })
+
+    depends_on = [
+      helm_release.argocd
+    ]
+  }
+
+  resource "kubectl_manifest" "argocd_projects" {
+    yaml_body = templatefile("${path.module}/data/argocd-projects.yaml.tfpl", {
+      cluster_name       = google_container_cluster.demo.name
+      git_repository_url = var.git_url
+    })
+
+    depends_on = [
+      helm_release.argocd
+    ]
+  }
+  ```
+
+  *Samozřejmě to spouštím jedním apply, ne po částech.*
+
+  Pomocí výše uvedeného kódu mám nyní **GKE cluster** s **ArgoCD** připojeným k mému GitOps repozitáři. 🎉
+
+  ---
+
+  ## 📂 Struktura GitOps repozitáře
+
+  Další částí je struktura GitOps repozitáře. Dodržuji následující strukturu:
+
+  ```
+    .
+  └── clusters
+      └── gke-demo-k8sgibdm
+          ├── components
+          │   ├── apps
+          │   │   ├── argocd.yaml
+          │   │   └── hello-world.yaml
+          │   └── projects
+          │       ├── apps.yaml
+          │       └── infra.yaml
+          └── config
+              ├── argocd
+              │   └── values.yaml
+              └── hello-world
+                  └── deploy.yaml
+  ```
+
+  Struktura:
+  - **Složky clusterů**:
+    Každý cluster má svou složku obsahující vše specifické pro daný cluster.
+  - **components/apps**:
+    Tato složka obsahuje **ArgoCD aplikace**, které chci nasadit.
+  - **components/projects**:
+    Zde definuji ArgoCD projekty.
+  - **config**:
+    Tato složka obsahuje buď:
+    - **HELM values soubory** pro každou aplikaci.
+    - Nebo **Kubernetes manifesty**, pokud nepoužívám HELM chart.
+
+  Jakýkoli nový projekt nebo aplikace přidaná do podsložky components je automaticky detekována a nasazena ArgoCD díky **root app/project**, které jsem nastavil pomocí Terraformu.
+
+  Tato struktura zajišťuje modularitu, čistotu a snadnou škálovatelnost.
+
+  ---
+
+  Pomocí tohoto přístupu mohu připravit složku pro každý cluster, který potřebuji, a **bootstrapovat ho bez námahy** pomocí Terraformu. 🚀
+
+  Nejlepší na tom je, že tento přístup není omezen na GKE — můžete ho použít pro **AKS, EKS** nebo dokonce **on-premises Kubernetes**. Pro on-prem prostředí nahraďte Terraform **Ansiblem** (který používám pro svůj domácí lab).
+
+  ---
+
+  Kombinací **Terraformu** pro provisioning infrastruktury a **ArgoCD** pro GitOps můžete vytvořit efektivní a opakovatelný proces pro správu Kubernetes clusterů — ať už pro GKE, AKS, EKS nebo váš on-prem lab.
+
+  Tento přístup zajišťuje konzistenci, škálovatelnost a efektivitu, což šetří čas a úsilí. Ať už vytváříte clustery pro POC nebo spravujete produkční prostředí, GitOps s ArgoCD činí proces bezproblémovým.
+
+  Připraveni to vyzkoušet? 🚀
