@@ -1,0 +1,123 @@
+
+title: GCP VM Logging snadno a rychle
+date: '2025-12-10'
+excerpt: Jak nastavit logování na GCP VM pomocí Google Cloud Ops Agenta
+content: |
+  # GCP VM Logging snadno a rychle
+
+  Musím se přiznat, že v poslední době jsem nasazoval aplikace na VM, nikoli do Kubernetes, jak jsem obvykle zvyklý. Jako někdo, kdo tráví spoustu času в kontejnerizovaných prostředích, mi nastavování logování na tradiční VM připadalo jako krok zpět a očekával jsem spoustu manuální práce. Věděl jsem o Google Cloud Ops Agentovi, protože jsem ho v minulosti na VM instaloval, ale nikdy jsem se neponořil do jeho konfigurace. Vždycky jsem předpokládal, že právě tam bude ta pravá složitost. Páni, jak jsem se mýlil! Konečně jsem se rozhodl se do toho ponořit a jsem upřímně nadšený, jak neuvěřitelně jednoduché to Google Cloud udělal, nejen co se týče instalace, ale i konfigurace pro efektivní logování. 🎉
+
+  ## Zázračná střela: Google Cloud's Ops Agent
+
+  Jádrem této jednoduchosti je **Ops Agent**. Není to jen další agent pro logování; je to jednotné řešení, které sbírá jak logy, tak metriky z vašich VM. Co je opravdu skvělé, je, že pod kapotou využívá výkonné open-source projekty: Fluent Bit pro logování a OpenTelemetry (OTEL) pro metriky. Instalace je přímočará:
+
+  ```bash
+  curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+  sudo bash add-google-cloud-ops-agent-repo.sh --also-install
+  ```
+
+  Agent je nainstalován a běží. Ale ujistěte se, že service account vaší VM má správná IAM oprávnění pro zápis do Logging API (`roles/logging.logWriter`) i Monitoring API (`roles/monitoring.metricWriter`). Naučil jsem se to tvrdě – pokud tato oprávnění nejsou správně nastavena, Ops Agent může nakonec způsobit, že VM přestane reagovat a dokonce se stane nedostupnou, což vyžaduje úplný reset. Takže, **důkladně zkontrolujte tato oprávnění!** ⚠️
+
+  ## Konfigurace toku
+
+  Dobře, instalace je snadná a konfigurace je stejná. Ops Agent se konfiguruje pomocí jednoduchého YAML souboru umístěného v `/etc/google-cloud-ops-agent/config.yaml`.
+
+  Struktura je logická a snadno sledovatelná. Je rozdělena do tří hlavních částí:
+
+  *   `receivers`: Tyto definují zdroje vašich logů. Můžete sledovat soubory (tail), naslouchat na syslog portu a další.
+  *   `processors`: Zde můžete parsovat a transformovat své logy. Například, pokud máte JSON logy, můžete agentovi říct, aby je parsoval do strukturovaných dat.
+  *   `service`: Zde propojujete své `receivers` a `processors` v `pipeline`.
+
+  ## Příklad z reálného světa
+
+  Udělejme to konkrétní. Představte si, že mám službu nazvanou `payment-api` běžící na VM. Zapisuje JSON logy do `/var/log/payment-api.log`. Toto je formát JSON logu, se kterým budeme pracovat:
+
+  ```json
+  {
+    "timestamp": "2025-12-10T14:40:22Z",
+    "service": "payment-api",
+    "env": "production",
+    "level": "INFO",
+    "message": "Service started"
+  }
+  ```
+
+  Chci dostat tyto logy do Google Cloud Logging, správně naparsované. A abychom naše logy udělali ještě užitečnější. Zde je, jak vypadá `config.yaml`:
+
+  ```yaml
+  logging:
+    receivers:
+      # Setup receiver
+      foo_app_receiver:
+        type: files
+        include_paths:
+          - /var/log/payment-api.log
+    processors:
+      # Parse JSON so we have log attributes in Log Explorer
+      json_processor:
+        type: parse_json
+      # Add custom labels to easy filtering
+      add_custom_labels:
+        type: modify_fields
+        fields:
+          labels.environment:
+            move_from: "jsonPayload.env"
+          labels.service:
+            move_from: "jsonPayload.service"   
+    # Join all together in a pipeline      
+    service:
+      pipelines:
+        default_pipeline:
+          receivers:
+          - foo_app_receiver
+          processors:
+          - json_processor
+          - add_custom_labels
+  ```
+
+  Definoval jsem `receiver` pro sledování mého log souboru, `processor` pro parsování JSON a druhý `processor` pro vytvoření labels z vlastností payloadu. Po restartování agenta se mé logy začaly objevovat v Logs Exploreru, perfektně strukturované a s filtrovatelnými `labels` jako: `labels.app="payment-api"`. Poté, co Ops Agent zpracuje váš aplikační log, takto by se odpovídající záznam objevil v Google Cloud Logging:
+
+  ```json
+  {
+    "insertId": "1rkhymlf6zjf8a",
+    "jsonPayload": {
+      "timestamp": "2025-12-10T14:40:22Z",
+      "level": "INFO",
+      "message": "Service started"
+    },
+    "resource": {
+      "type": "gce_instance",
+      "labels": {
+        "project_id": "************",
+        "instance_id": "825277651178789986",
+        "zone": "europe-west1-b"
+      }
+    },
+    "timestamp": "2025-12-10T07:58:59.273176313Z",
+    "labels": {
+      "environment": "production",
+      "service": "payment-api",
+      "compute.googleapis.com/resource_name": "logging-post-demo"
+    },
+    "logName": "projects/************/logs/foo_app_receiver",
+    "receiveTimestamp": "2025-12-10T07:58:59.551654741Z"
+  }
+  ```
+
+  ## Co když se něco pokazí? 🤔
+
+  Troubleshooting je snadný, pokud to nefunguje, jednoduše zkontrolujte stav služby:
+
+  ```bash
+  sudo systemctl status google-cloud-ops-agent
+  ```
+
+  A agent také zapisuje své vlastní logy do `/var/log/google-cloud-ops-agent`, které můžete prozkoumat, abyste viděli, co se děje pod kapotou.
+
+  ## Nejde jen o logy! 📈
+
+  A tady je ten háček: Ops Agent není omezen jen на logování. Můžete ho také použít ke sběru široké škály metrik z vašich VM a aplikací a posílat je do Google Cloud Monitoring. Tento jednotný přístup znamená méně overheadu a jednodušší správu.
+
+  ## Závěrečné myšlenky
+
+  Jsem upřímně ohromen myšlenkou, která byla vložena do Ops Agenta. Je to výkonný a flexibilní nástroj, který je také neuvěřitelně snadné začít používat. Pokud jste odkládali nastavení správné observability pro vaše GCP VM, protože jste si mysleli, že to bude otrava, jsem tu, abych vám řekl: není. Zkuste to! 👍
